@@ -69,7 +69,7 @@ function renderNav() {
 function renderFooter() {
   return `
     <footer>
-      <p>California State Parks Pass · 32 parks · Target completion: Dec 31, 2026</p>
+      <p>California State Parks Pass · 32 parks</p>
       <p style="margin-top:0.4rem"><a href="https://www.parks.ca.gov" target="_blank" rel="noopener">parks.ca.gov</a> · <a href="https://www.reservecalifornia.com" target="_blank" rel="noopener">ReserveCalifornia.com</a></p>
     </footer>`;
 }
