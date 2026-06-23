@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Parks — CA State Parks Pass</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🌲 CA State Parks <span>Pass</span></a>
+    <a href="index.html">Home</a>
+    <a href="parks.html" class="active">Parks</a>
+    <a href="trips.html">Trips</a>
+    <a href="https://www.parks.ca.gov/?page_id=30966" target="_blank" rel="noopener" class="nav-get-pass">Get Pass →</a>
+  </div>
+</nav>
+
+<div class="page-header">
+  <h1>All 32 Parks</h1>
+  <p>Every park on the California State Parks Pass — from Weaverville to Riverside</p>
+</div>
+
+<main>
+
+  <div class="filter-bar" id="region-filters">
+    <label>Region:</label>
+    <button class="filter-btn active" data-region="all">All Regions</button>
+  </div>
+
+  <div class="filter-bar" id="dog-filters" style="margin-top:-0.5rem">
+    <label>Dogs:</label>
+    <button class="filter-btn active" data-dog="all">All Parks</button>
+    <button class="filter-btn" data-dog="yes">🐕 Dog-Friendly</button>
+    <button class="filter-btn" data-dog="no">🐕 No Dogs</button>
+  </div>
+
+  <div class="filter-bar" id="visited-filters" style="margin-top:-0.5rem">
+    <label>Status:</label>
+    <button class="filter-btn active" data-visited="all">All</button>
+    <button class="filter-btn" data-visited="unvisited">Still To Do</button>
+    <button class="filter-btn" data-visited="visited">✓ Visited</button>
+  </div>
+
+  <div id="parks-summary" style="font-family:Arial,sans-serif;font-size:0.88rem;color:#888;margin-bottom:1rem"></div>
+
+  <div class="grid" id="parks-grid"></div>
+
+</main>
+
+<footer>
+  <p>California State Parks Pass · 32 parks · Target completion: Nov 29, 2026</p>
+  <p style="margin-top:0.4rem"><a href="https://www.parks.ca.gov" target="_blank" rel="noopener">parks.ca.gov</a> · <a href="https://www.reservecalifornia.com" target="_blank" rel="noopener">ReserveCalifornia.com</a></p>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const regions = [...new Set(PARKS.map(p => p.region))].sort();
+  const filtersEl = document.getElementById('region-filters');
+  regions.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.region = r;
+    btn.textContent = r + ` (${PARKS.filter(p => p.region === r).length})`;
+    filtersEl.appendChild(btn);
+  });
+
+  let activeRegion = 'all';
+  let activeDog = 'all';
+  let activeVisited = 'all';
+
+  function renderParks() {
+    let filtered = activeRegion === 'all' ? PARKS : PARKS.filter(p => p.region === activeRegion);
+    if (activeDog === 'yes') filtered = filtered.filter(p => p.dogFriendly === true);
+    else if (activeDog === 'no') filtered = filtered.filter(p => p.dogFriendly === false);
+    if (activeVisited === 'visited') filtered = filtered.filter(p => isVisited(p.id));
+    else if (activeVisited === 'unvisited') filtered = filtered.filter(p => !isVisited(p.id));
+    document.getElementById('parks-summary').textContent =
+      `Showing ${filtered.length} of ${PARKS.length} parks`;
+
+    document.getElementById('parks-grid').innerHTML = filtered.map(park => {
+      const color = regionColor(park.region);
+      const trip = getTripById(park.tripId);
+
+      const badges = [];
+      if (park.camping) badges.push(`<span class="badge badge-camping">⛺ Camping</span>`);
+      if (park.scuba) badges.push(`<span class="badge badge-scuba">🤿 Scuba</span>`);
+      if (park.cycling) badges.push(`<span class="badge badge-cycling">🚲 Cycling</span>`);
+      if (park.dogFriendly === true) badges.push(`<span class="badge badge-dog-yes">🐕 Dogs OK</span>`);
+      else if (park.dogFriendly === false) badges.push(`<span class="badge badge-dog-no">🐕 No Dogs</span>`);
+      if (park.warning) badges.push(`<span class="badge badge-warning">⚠ Alert</span>`);
+
+      const visitedMark = isVisited(park.id) ? `<div class="card-visited-overlay">✓</div>` : '';
+      return `
+        <a class="card" href="park.html?id=${park.id}">
+          ${visitedMark}
+          <div class="card-header" style="border-color:${color}">
+            <div class="card-region" style="color:${color}">${park.region}</div>
+            <h2>${park.name}</h2>
+          </div>
+          <div class="card-body">
+            <div class="card-meta">
+              <span>📍 ${park.city}</span>
+              ${park.trailCount > 0 ? `<span>🥾 ${park.trailCount} trails</span>` : ''}
+              ${park.allTrailsRating ? `<span>⭐ ${park.allTrailsRating}★</span>` : ''}
+            </div>
+            ${park.topHike ? `<p class="card-note"><strong>Top hike:</strong> ${park.topHike.name} (${park.topHike.length})</p>` : ''}
+            ${park.activities && park.activities.length ? `<p class="card-note" style="color:#888;font-size:0.8rem">${park.activities.slice(0,3).join(' · ')}${park.activities.length > 3 ? ' +more' : ''}</p>` : ''}
+            <p class="card-note" style="color:#666;font-size:0.84rem">${park.notes.substring(0, 100)}${park.notes.length > 100 ? '…' : ''}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-top:0.5rem;align-items:center">
+              ${badges.join('')}
+              <span style="margin-left:auto;font-family:Arial,sans-serif;font-size:0.78rem;color:#aaa">${park.suggestedDate}</span>
+            </div>
+          </div>
+        </a>`;
+    }).join('');
+  }
+
+  renderParks();
+
+  filtersEl.addEventListener('click', e => {
+    if (!e.target.matches('.filter-btn')) return;
+    filtersEl.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeRegion = e.target.dataset.region;
+    renderParks();
+  });
+
+  document.getElementById('dog-filters').addEventListener('click', e => {
+    if (!e.target.matches('.filter-btn')) return;
+    document.getElementById('dog-filters').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeDog = e.target.dataset.dog;
+    renderParks();
+  });
+
+  document.getElementById('visited-filters').addEventListener('click', e => {
+    if (!e.target.matches('.filter-btn')) return;
+    document.getElementById('visited-filters').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeVisited = e.target.dataset.visited;
+    renderParks();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip — CA State Parks Pass</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    #trip-map { height: 320px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🌲 CA State Parks <span>Pass</span></a>
+    <a href="index.html">Home</a>
+    <a href="parks.html">Parks</a>
+    <a href="trips.html">Trips</a>
+    <a href="https://www.parks.ca.gov/?page_id=30966" target="_blank" rel="noopener" class="nav-get-pass">Get Pass →</a>
+  </div>
+</nav>
+
+<main>
+  <div class="trip-detail" id="trip-content">
+    <p style="color:#888;font-family:Arial,sans-serif">Loading trip…</p>
+  </div>
+</main>
+
+<footer>
+  <p>California State Parks Pass · 32 parks · Target completion: Nov 29, 2026</p>
+  <p style="margin-top:0.4rem"><a href="https://www.parks.ca.gov" target="_blank" rel="noopener">parks.ca.gov</a></p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const tripId = getParam('id');
+  const trip = getTripById(tripId);
+  const container = document.getElementById('trip-content');
+
+  if (!trip) {
+    container.innerHTML = '<p style="color:#c00;font-family:Arial,sans-serif">Trip not found. <a href="trips.html">← Back to trips</a></p>';
+  } else {
+    document.title = trip.name + ' — CA State Parks Pass';
+    const parks = trip.parkIds.map(id => getParkById(id)).filter(Boolean);
+    const warnings = parks.filter(p => p.warning);
+
+    const badge = trip.holidayTag
+      ? `<span class="badge badge-holiday">🎉 ${trip.holidayTag}</span>`
+      : tripTypeBadge(trip.type);
+
+    // Build itinerary grouped by day
+    function buildItinerary(items, campgrounds) {
+      if (!items || items.length === 0) return '';
+
+      // Group stops by day, carrying current day forward for stops without a day prefix
+      const days = {};
+      const dayOrder = [];
+      let currentKey = 'main';
+
+      items.forEach(item => {
+        const isDayHeader = item.time && /^Day\s+\d+|^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Thursday|Friday|Saturday|Sunday|Monday|Tuesday|Wednesday)/i.test(item.time);
+        if (isDayHeader) {
+          const key = item.time.split(' — ')[0].trim();
+          if (!days[key]) { days[key] = []; dayOrder.push(key); }
+          currentKey = key;
+          days[key].push(item);
+        } else {
+          if (!days[currentKey]) { days[currentKey] = []; dayOrder.push(currentKey); }
+          days[currentKey].push(item);
+        }
+      });
+
+      const hasCamps = campgrounds && campgrounds.length > 0;
+
+      function renderStop(stop) {
+        const displayTime = stop.time.includes(' — ') ? stop.time.split(' — ')[1] : stop.time;
+        const isOvernight = /hotel|check.?in|overnight/i.test(stop.location);
+
+        // Find campgrounds that mention a city from the hotel line
+        let campLinks = '';
+        if (isOvernight && hasCamps) {
+          const cityMatch = stop.location.match(/\bin ([A-Za-z\s\/]+)/i);
+          const cities = cityMatch ? cityMatch[1].split(/\s+or\s+|\s*\/\s*/i).map(c => c.trim().toLowerCase()) : [];
+          const matched = campgrounds.filter(cg =>
+            cities.some(city => city.length > 2 &&
+              (cg.distance.toLowerCase().includes(city) || cg.note.toLowerCase().includes(city) || cg.name.toLowerCase().includes(city)))
+          );
+          const links = matched.length
+            ? matched.map(cg => `<a href="${cg.url}" target="_blank" rel="noopener">⛺ ${cg.name.replace(' (ON-SITE)', '')}</a>`).join(' &nbsp;·&nbsp; ')
+            : `<a href="#where-to-camp">⛺ See camping alternatives ↓</a>`;
+          campLinks = `<div class="stop-camp-link">${links}</div>`;
+        }
+
+        return `<div class="itinerary-stop">
+          <div class="stop-time">${displayTime}</div>
+          <div>
+            <div class="stop-location">${stop.location}</div>
+            ${stop.note ? `<div class="stop-note">${stop.note}</div>` : ''}
+            ${campLinks}
+          </div>
+        </div>`;
+      }
+
+      if (dayOrder.length === 1) {
+        return `<div class="itinerary-day">
+          ${days[dayOrder[0]].map(renderStop).join('')}
+        </div>`;
+      }
+
+      return dayOrder.map(key => {
+        const stops = days[key];
+        const header = key === 'main' ? '' : key;
+        return `<div class="itinerary-day">
+          ${header ? `<h3>${header}</h3>` : ''}
+          ${stops.map(renderStop).join('')}
+        </div>`;
+      }).join('');
+    }
+
+    container.innerHTML = `
+      <a href="trips.html" class="back-link">← All Trips</a>
+
+      ${warnings.length ? `<div class="warning-banner">⚠️ <span><strong>${warnings.length} park${warnings.length > 1 ? 's' : ''} on this trip ${warnings.length > 1 ? 'have' : 'has'} active alerts.</strong> ${warnings.map(p => p.name + ': ' + p.warning).join(' | ')}</span></div>` : ''}
+
+      <div style="margin-bottom:0.5rem">
+        ${badge}
+        <span style="font-family:Arial,sans-serif;font-size:0.88rem;color:#888;margin-left:0.8rem">${trip.type} · ${trip.duration} · ${trip.totalMiles} mi</span>
+      </div>
+
+      <h1>${trip.name}</h1>
+      <p style="font-style:italic;color:#666;font-size:1.05rem;margin:0.3rem 0 0.8rem">${trip.subtitle}</p>
+
+      <div style="font-family:Arial,sans-serif;font-size:0.9rem;color:#555;margin-bottom:1.5rem">
+        <strong>🗓 Suggested:</strong> ${trip.suggestedDate} &nbsp;·&nbsp;
+        <strong>🏛 Parks:</strong> ${trip.parkIds.length} &nbsp;·&nbsp;
+        <strong>🚗 Drive:</strong> ~${trip.totalMiles} miles
+        ${trip.suggestedDates ? `&nbsp;·&nbsp; <strong>Suggested:</strong> ${trip.suggestedDates}` : ''}
+      </div>
+
+      <div id="trip-map"></div>
+
+      <div class="detail-card" style="margin-bottom:1.5rem">
+        <h3>About This Trip</h3>
+        <p style="font-size:0.95rem;line-height:1.7">${trip.description}</p>
+        ${trip.highlight ? `<p style="margin-top:0.8rem;font-family:Arial,sans-serif;font-size:0.88rem;background:#f5f0e8;padding:0.7rem 1rem;border-radius:6px;color:#2d5a27"><strong>Highlight:</strong> ${trip.highlight}</p>` : ''}
+      </div>
+
+      <h2 class="section-title">Parks on This Trip</h2>
+      <div class="park-chips">
+        ${parks.map(p => `<a class="park-chip" href="park.html?id=${p.id}">${p.name}${p.warning ? ' ⚠' : ''}</a>`).join('')}
+      </div>
+
+      <div class="grid" style="margin-top:1rem;margin-bottom:2rem">
+        ${parks.map(park => {
+          const color = regionColor(park.region);
+          return `
+            <a class="card" href="park.html?id=${park.id}">
+              <div class="card-header" style="border-color:${color}">
+                <div class="card-region" style="color:${color}">${park.region}</div>
+                <h2>${park.name}</h2>
+              </div>
+              <div class="card-body">
+                <div class="card-meta">
+                  <span>📍 ${park.city}</span>
+                  ${park.trailCount > 0 ? `<span>🥾 ${park.trailCount} trails</span>` : ''}
+                  ${park.allTrailsRating ? `<span>⭐ ${park.allTrailsRating}★</span>` : ''}
+                </div>
+                ${park.warning ? `<div class="badge badge-warning" style="margin-top:0.5rem">⚠ ${park.warning.substring(0, 60)}…</div>` : ''}
+                <p class="card-note" style="margin-top:0.4rem">${park.notes.substring(0, 90)}…</p>
+              </div>
+            </a>`;
+        }).join('')}
+      </div>
+
+      <h2 class="section-title">Example Day-by-Day Itinerary</h2>
+      ${trip.itineraryCycling ? `
+      <div class="itinerary-tabs">
+        <button class="itinerary-tab active" id="tab-hiking" onclick="switchTab('hiking')">🥾 Hiking</button>
+        <button class="itinerary-tab" id="tab-cycling" onclick="switchTab('cycling')">🚲 Cycling</button>
+      </div>` : ''}
+      <div id="itinerary-hiking" style="margin-top:1rem">
+        ${buildItinerary(trip.itinerary, trip.campgrounds)}
+      </div>
+      ${trip.itineraryCycling ? `
+      <div id="itinerary-cycling" style="margin-top:1rem;display:none">
+        ${buildItinerary(trip.itineraryCycling, trip.campgrounds)}
+      </div>` : ''}
+
+      ${trip.campgrounds && trip.campgrounds.length ? `
+      <h2 class="section-title" style="margin-top:2rem" id="where-to-camp">Where to Camp</h2>
+      <div class="campground-grid" style="margin-top:1rem;margin-bottom:2rem">
+        ${trip.campgrounds.map(cg => {
+          const typeColors = {
+            'State Park': '#2d5a27',
+            'National Forest': '#4a7c3f',
+            'Federal': '#5b7a9d',
+            'County': '#8b6914',
+            'KOA': '#c0392b',
+            'Private': '#7f8c8d'
+          };
+          const color = typeColors[cg.type] || '#666';
+          const isOnSite = cg.name.includes('ON-SITE');
+          return `
+            <div class="detail-card campground-card" style="${isOnSite ? 'border-left: 4px solid ' + color + ';' : ''}">
+              <div style="display:flex;align-items:flex-start;gap:0.8rem;margin-bottom:0.5rem">
+                <div style="flex:1">
+                  <div style="font-weight:700;font-size:1rem;color:#222">${cg.name.replace(' (ON-SITE)', '')}</div>
+                  <div style="margin-top:0.3rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
+                    <span class="badge" style="background:${color};color:#fff;font-size:0.75rem">${cg.type}</span>
+                    ${isOnSite ? '<span class="badge badge-camping" style="font-size:0.75rem">⛺ On-Site</span>' : ''}
+                    <span style="font-family:Arial,sans-serif;font-size:0.82rem;color:#888">📍 ${cg.distance}</span>
+                  </div>
+                </div>
+                <a href="${cg.url}" target="_blank" rel="noopener" class="ext-link" style="white-space:nowrap;flex-shrink:0;font-size:0.82rem">Book →</a>
+              </div>
+              <p style="font-family:Arial,sans-serif;font-size:0.88rem;color:#555;line-height:1.5;margin:0">${cg.note}</p>
+            </div>`;
+        }).join('')}
+      </div>` : ''}
+
+      `;
+
+    // Itinerary tab toggle
+    if (trip.itineraryCycling) {
+      window.switchTab = function(tab) {
+        document.getElementById('itinerary-hiking').style.display = tab === 'hiking' ? 'block' : 'none';
+        document.getElementById('itinerary-cycling').style.display = tab === 'cycling' ? 'block' : 'none';
+        document.getElementById('tab-hiking').classList.toggle('active', tab === 'hiking');
+        document.getElementById('tab-cycling').classList.toggle('active', tab === 'cycling');
+      };
+    }
+
+    // Map with all parks
+    const map = L.map('trip-map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18
+    }).addTo(map);
+
+    const bounds = [];
+    parks.forEach((park, i) => {
+      const color = regionColor(park.region);
+      const marker = L.circleMarker([park.lat, park.lon], {
+        radius: 10,
+        fillColor: color,
+        color: '#fff',
+        weight: 2,
+        fillOpacity: 0.9
+      }).addTo(map);
+
+      marker.bindPopup(`
+        <div style="font-family:Arial,sans-serif">
+          <strong style="color:#2d5a27">${park.name}</strong><br>
+          <span style="color:#888;font-size:0.8em">${park.city}</span><br>
+          <a href="park.html?id=${park.id}" style="color:#2d5a27;font-size:0.82em">View details →</a>
+        </div>`);
+
+      bounds.push([park.lat, park.lon]);
+    });
+
+    if (bounds.length === 1) {
+      map.setView(bounds[0], 11);
+    } else if (bounds.length > 1) {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    } else {
+      map.setView([37.5, -119.5], 6);
+    }
+  }
+</script>
+</body>
+</html>

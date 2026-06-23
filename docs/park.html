@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Park — CA State Parks Pass</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    #park-map { height: 260px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); margin-bottom: 1.5rem; }
+    #page-title { display:none; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🌲 CA State Parks <span>Pass</span></a>
+    <a href="index.html">Home</a>
+    <a href="parks.html">Parks</a>
+    <a href="trips.html">Trips</a>
+    <a href="https://www.parks.ca.gov/?page_id=30966" target="_blank" rel="noopener" class="nav-get-pass">Get Pass →</a>
+  </div>
+</nav>
+
+<main>
+  <div class="park-detail" id="park-content">
+    <p style="color:#888;font-family:Arial,sans-serif">Loading park…</p>
+  </div>
+</main>
+
+<footer>
+  <p>California State Parks Pass · 32 parks · Target completion: Nov 29, 2026</p>
+  <p style="margin-top:0.4rem"><a href="https://www.parks.ca.gov" target="_blank" rel="noopener">parks.ca.gov</a></p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const parkId = getParam('id');
+  const park = getParkById(parkId);
+  const container = document.getElementById('park-content');
+
+  if (!park) {
+    container.innerHTML = '<p style="color:#c00;font-family:Arial,sans-serif">Park not found. <a href="parks.html">← Back to parks</a></p>';
+  } else {
+    document.title = park.name + ' — CA State Parks Pass';
+    const trip = getTripById(park.tripId);
+    const color = regionColor(park.region);
+
+    const extLinks = [];
+    if (park.parksUrl) extLinks.push(`<a class="ext-link ext-link-parks" href="${park.parksUrl}" target="_blank" rel="noopener">🏛 parks.ca.gov</a>`);
+    const allHikesUrl = park.allTrailsExploreUrl || park.allTrailsUrl;
+    if (allHikesUrl) extLinks.push(`<a class="ext-link ext-link-trails" href="${allHikesUrl}" target="_blank" rel="noopener">🥾 All hikes on AllTrails</a>`);
+
+    container.innerHTML = `
+      <a href="parks.html" class="back-link">← All Parks</a>
+
+      ${park.warning ? warningBanner(park.warning) : ''}
+
+      <div style="margin-bottom:0.5rem">
+        <span class="badge" style="background:${color};color:#fff">${park.region}</span>
+        ${park.scuba ? '<span class="badge badge-scuba" style="margin-left:0.4rem">🤿 Scuba Nearby</span>' : ''}
+        ${park.camping ? '<span class="badge badge-camping" style="margin-left:0.4rem">⛺ Camping</span>' : ''}
+      </div>
+
+      <h1>${park.name}</h1>
+      <p class="park-region-line">📍 ${park.city}, California &nbsp;·&nbsp; ${park.region}</p>
+
+      <button class="visited-btn" id="visited-btn" onclick="handleVisitedToggle()"></button>
+
+      <div id="park-map"></div>
+
+      <div class="detail-grid">
+
+        <div class="detail-card">
+          <h3>Hiking</h3>
+          <div class="stat-row">
+            <span class="stat-label">Trails</span>
+            <span class="stat-value">${park.trailCount > 0 ? park.trailCount + ' trails' : 'None on-site'}</span>
+          </div>
+          ${park.topHike ? `
+          <div class="stat-row">
+            <span class="stat-label">Top Hike</span>
+            <span class="stat-value" style="text-align:right;max-width:60%">${park.topHike.name}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Length</span>
+            <span class="stat-value">${park.topHike.length}</span>
+          </div>` : ''}
+          ${park.allTrailsRating ? `
+          <div class="stat-row">
+            <span class="stat-label">AllTrails Rating</span>
+            <span class="stat-value">${park.allTrailsRating} ★</span>
+          </div>` : ''}
+          ${park.allTrailsUrl ? `<div style="margin-top:0.8rem"><a class="ext-link ext-link-trails" href="${park.allTrailsUrl}" target="_blank" rel="noopener">🥾 View on AllTrails</a></div>` : ''}
+        </div>
+
+        <div class="detail-card">
+          <h3>Camping</h3>
+          <div class="stat-row">
+            <span class="stat-label">Camping Available</span>
+            <span class="stat-value">${park.camping ? 'Yes' : 'No'}</span>
+          </div>
+          ${park.camping ? `
+          <div class="stat-row">
+            <span class="stat-label">Campsites</span>
+            <span class="stat-value">${park.campsites}</span>
+          </div>` : ''}
+        </div>
+
+        ${park.cycling ? `
+        <div class="detail-card">
+          <h3>🚲 Cycling</h3>
+          <p style="font-size:0.9rem;margin-bottom:1rem">${park.cycling}</p>
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <a class="ext-link" href="https://ridewithgps.com/routes?search%5Blocation%5D=${encodeURIComponent(park.city + ', CA')}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🗺 Routes near ${park.city} on RideWithGPS</a>
+            <a class="ext-link" href="https://ridewithgps.com/routes?search%5Bkeywords%5D=${encodeURIComponent(park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim())}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🔍 Search "${park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim()}"</a>
+          </div>
+        </div>` : ''}
+
+        ${park.scuba ? `
+        <div class="detail-card">
+          <h3>🤿 Scuba Diving</h3>
+          <p style="font-size:0.9rem">${park.scuba}</p>
+          ${park.id === 'monterey' ? '<p style="font-size:0.85rem;color:#555;margin-top:0.5rem">Best diving: September–November. Breakwater Cove is ideal for night dives and beginners.</p>' : ''}
+          ${park.id === 'fort-ross' ? '<p style="font-size:0.85rem;color:#555;margin-top:0.5rem">SS Pomona wreck requires certification. Fort Ross Cove reef is good for snorkeling too.</p>' : ''}
+        </div>` : ''}
+
+        <div class="detail-card">
+          <h3>Visit Info</h3>
+          <div class="stat-row">
+            <span class="stat-label">Suggested Date</span>
+            <span class="stat-value">${park.suggestedDate}</span>
+          </div>
+          ${trip ? `
+          <div class="stat-row">
+            <span class="stat-label">Trip</span>
+            <span class="stat-value"><a href="trip.html?id=${trip.id}" style="color:#2d5a27">${trip.name}</a></span>
+          </div>` : ''}
+          <div style="margin-top:0.8rem">${extLinks.join('')}</div>
+        </div>
+
+      </div>
+
+      <div class="detail-card">
+        <h3>🐕 Dogs</h3>
+        ${park.dogFriendly === true
+          ? `<div class="badge badge-dog-yes" style="margin-bottom:0.7rem">✓ Dogs Welcome</div>`
+          : park.dogFriendly === false
+          ? `<div class="badge badge-dog-no" style="margin-bottom:0.7rem">✗ No Dogs</div>`
+          : `<div class="badge badge-dog-unknown" style="margin-bottom:0.7rem">? Policy Unclear</div>`}
+        <p style="font-size:0.88rem;line-height:1.6;color:#444">${park.dogPolicy || 'No policy information available.'}</p>
+      </div>
+
+      <div class="detail-card">
+        <h3>Activities</h3>
+        <div class="activity-chips">
+          ${(park.activities || []).map(a => `<span class="activity-chip">${a}</span>`).join('')}
+        </div>
+      </div>
+
+      <div class="detail-card" style="margin-bottom:1.5rem;grid-column:1/-1">
+        <h3>About This Park</h3>
+        <p style="font-size:0.95rem;line-height:1.7">${park.notes}</p>
+      </div>
+
+      ${trip ? `
+      <div style="margin-top:1.5rem">
+        <h2 class="section-title">This Park Is Part Of</h2>
+        <a class="card" href="trip.html?id=${trip.id}" style="max-width:420px;display:block;margin-top:1rem">
+          <div class="card-header">
+            <div class="card-region">${trip.type} · ${trip.duration}</div>
+            <h2>${trip.name}</h2>
+          </div>
+          <div class="card-body">
+            <p class="card-note" style="font-style:italic">${trip.subtitle}</p>
+            <div class="card-meta" style="margin-top:0.5rem">
+              <span>🗓 ${trip.suggestedDate}</span>
+              <span>🏛 ${trip.parkIds.length} parks</span>
+            </div>
+          </div>
+        </a>
+      </div>` : ''}`;
+
+    // Visited toggle
+    function updateVisitedBtn() {
+      const btn = document.getElementById('visited-btn');
+      const visited = isVisited(park.id);
+      btn.textContent = visited ? '✓ Visited!' : '○ Mark as Visited';
+      btn.classList.toggle('is-visited', visited);
+    }
+    window.handleVisitedToggle = function() {
+      toggleVisited(park.id);
+      updateVisitedBtn();
+    };
+    updateVisitedBtn();
+
+    // Mini map
+    const miniMap = L.map('park-map').setView([park.lat, park.lon], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18
+    }).addTo(miniMap);
+    L.marker([park.lat, park.lon]).addTo(miniMap)
+      .bindPopup(`<strong>${park.name}</strong><br>${park.city}`).openPopup();
+  }
+</script>
+</body>
+</html>

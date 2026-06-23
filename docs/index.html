@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>California State Parks Pass — 32 Parks Adventure</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    #map { height: 520px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">🌲 CA State Parks <span>Pass</span></a>
+    <a href="index.html" class="active">Home</a>
+    <a href="parks.html">Parks</a>
+    <a href="trips.html">Trips</a>
+    <a href="https://www.parks.ca.gov/?page_id=30966" target="_blank" rel="noopener" class="nav-get-pass">Get Pass →</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>California State Parks Pass</h1>
+  <p>32 historic parks. One year. One pass. From the Russian settlements of the Sonoma Coast to the ghost towns of the Eastern Sierra — the full story of California.</p>
+  <a href="https://www.parks.ca.gov/?page_id=30966" target="_blank" rel="noopener" class="hero-cta">Get Your Pass →</a>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="num">32</div><div class="lbl">Parks to Visit</div></div>
+    <div class="hero-stat"><div class="num">12</div><div class="lbl">Trips Planned</div></div>
+    <div class="hero-stat"><div class="num">~4,000</div><div class="lbl">Miles of Driving</div></div>
+    <div class="hero-stat"><div class="num">Nov 29</div><div class="lbl">Target Completion</div></div>
+  </div>
+</div>
+
+<main>
+
+  <div class="progress-section">
+    <h3>Progress toward completing all 32 parks</h3>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progress-label">Loading…</div>
+  </div>
+
+  <div class="map-legend" id="map-legend"></div>
+  <div id="map"></div>
+
+  <h2 class="section-title">Upcoming Trips</h2>
+  <p class="section-sub">6 day trips from Santa Rosa + 6 road trips across California</p>
+  <div class="grid" id="trips-grid"></div>
+
+  <h2 class="section-title" style="margin-top:2.5rem">All Parks by Region</h2>
+  <div class="filter-bar" id="region-filters">
+    <label>Region:</label>
+    <button class="filter-btn active" data-region="all">All</button>
+  </div>
+  <div class="grid" id="parks-grid"></div>
+
+</main>
+
+<footer>
+  <p>California State Parks Pass · 32 parks · Target completion: Nov 29, 2026</p>
+  <p style="margin-top:0.4rem"><a href="https://www.parks.ca.gov" target="_blank" rel="noopener">parks.ca.gov</a> · <a href="https://www.reservecalifornia.com" target="_blank" rel="noopener">ReserveCalifornia.com</a></p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // Progress bar — reads from localStorage
+  function updateProgress() {
+    const visited = getVisited();
+    const total = PARKS.length;
+    const pct = visited.length / total * 100;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-label').textContent =
+      `${visited.length} of ${total} parks visited${visited.length === total ? ' 🎉 Complete!' : ''}`;
+  }
+  updateProgress();
+
+  // Map legend
+  const regions = [...new Set(PARKS.map(p => p.region))].sort();
+  const legendEl = document.getElementById('map-legend');
+  legendEl.innerHTML = '<h4>Park regions</h4>' + regions.map(r =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${regionColor(r)}"></div>${r}</div>`
+  ).join('');
+
+  // Leaflet map
+  const map = L.map('map').setView([37.5, -119.5], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  PARKS.forEach(park => {
+    const color = regionColor(park.region);
+    const marker = L.circleMarker([park.lat, park.lon], {
+      radius: 9,
+      fillColor: color,
+      color: '#fff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.88
+    }).addTo(map);
+
+    const popup = `
+      <div style="font-family:Arial,sans-serif;max-width:220px">
+        <strong style="color:#2d5a27">${park.name}</strong><br>
+        <span style="color:#888;font-size:0.8em">${park.city} · ${park.region}</span><br>
+        <span style="font-size:0.85em;margin-top:4px;display:block">${park.notes.substring(0, 100)}…</span>
+        <a href="park.html?id=${park.id}" style="color:#2d5a27;font-size:0.82em;display:block;margin-top:6px">View details →</a>
+      </div>`;
+    marker.bindPopup(popup);
+  });
+
+  // Trips grid
+  const tripsGrid = document.getElementById('trips-grid');
+  TRIPS.forEach(trip => {
+    const parks = trip.parkIds.map(id => getParkById(id)).filter(Boolean);
+    const badge = trip.holidayTag
+      ? `<span class="badge badge-holiday">${trip.holidayTag}</span>`
+      : tripTypeBadge(trip.type);
+
+    tripsGrid.innerHTML += `
+      <a class="card" href="trip.html?id=${trip.id}">
+        <div class="card-header">
+          <div class="card-region">${trip.type} · ${trip.duration} · ${trip.totalMiles} mi</div>
+          <h2>${trip.name}</h2>
+        </div>
+        <div class="card-body">
+          <div>${badge}</div>
+          <p class="card-note" style="font-style:italic;color:#555">${trip.subtitle}</p>
+          <div class="card-meta">
+            <span>🗓 ${trip.suggestedDate}</span>
+            <span>🏛 ${trip.parkIds.length} park${trip.parkIds.length !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+      </a>`;
+  });
+
+  // Parks grid with region filter
+  const filtersEl = document.getElementById('region-filters');
+  regions.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.region = r;
+    btn.textContent = r;
+    filtersEl.appendChild(btn);
+  });
+
+  function renderParksGrid(filterRegion) {
+    const grid = document.getElementById('parks-grid');
+    const filtered = filterRegion === 'all' ? PARKS : PARKS.filter(p => p.region === filterRegion);
+    grid.innerHTML = filtered.map(park => {
+      const color = regionColor(park.region);
+      const camping = park.camping ? `<span>⛺ ${park.campsites} sites</span>` : '';
+      const scuba = park.scuba ? `<span class="badge badge-scuba">🤿 Scuba</span>` : '';
+      const warn = park.warning ? `<span class="badge badge-warning">⚠</span>` : '';
+      const dog = park.dogFriendly === true ? `<span class="badge badge-dog-yes">🐕</span>`
+                : park.dogFriendly === false ? `<span class="badge badge-dog-no">🐕✗</span>` : '';
+      const visitedMark = isVisited(park.id) ? `<div class="card-visited-overlay">✓</div>` : '';
+      return `
+        <a class="card" href="park.html?id=${park.id}">
+          ${visitedMark}
+          <div class="card-header" style="border-color:${color}">
+            <div class="card-region">${park.region}</div>
+            <h2>${park.name}</h2>
+          </div>
+          <div class="card-body">
+            <div class="card-meta">
+              ${camping}
+              ${park.trailCount > 0 ? `<span>🥾 ${park.trailCount} trails</span>` : ''}
+              ${park.allTrailsRating ? `<span>⭐ ${park.allTrailsRating}</span>` : ''}
+            </div>
+            <p class="card-note">${park.topHike ? park.topHike.name + ' · ' + park.topHike.length : park.notes.substring(0, 80) + '…'}</p>
+            ${park.activities && park.activities.length ? `<p class="card-note" style="color:#888;font-size:0.8rem">${park.activities.slice(0,3).join(' · ')}</p>` : ''}
+            <div style="margin-top:0.5rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
+              ${scuba}${dog}${warn}
+              <span style="margin-left:auto;font-family:Arial,sans-serif;font-size:0.8rem;color:#888">${park.suggestedDate}</span>
+            </div>
+          </div>
+        </a>`;
+    }).join('');
+  }
+
+  renderParksGrid('all');
+
+  document.getElementById('region-filters').addEventListener('click', e => {
+    if (!e.target.matches('.filter-btn')) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    renderParksGrid(e.target.dataset.region);
+  });
+</script>
+</body>
+</html>
