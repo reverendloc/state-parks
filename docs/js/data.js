@@ -327,6 +327,7 @@ const PARKS = [
     allTrailsUrl: "https://www.alltrails.com/parks/us/california/indian-grinding-rock-state-historic-park",
     parksUrl: "https://www.parks.ca.gov/?page_id=553",
     cycling: "Amador County cycling routes",
+    cyclingLink: "https://ridewithgps.com/explore?b=n!Indian%20Grinding%20Rock%20State%20Historic%20Park!-120.640868!38.425106~3mi&length=any",
     scuba: null,
     dogFriendly: true,
     dogPolicy: "Dogs on leash (max 6 feet) allowed on paved roads and paved walkway, and in campground at your campsite. Not allowed on unpaved trails, open meadows, or forested areas. Must sleep inside tent/RV at night.",

@@ -618,6 +618,7 @@ main {
 .ext-link:hover { opacity: 0.8; }
 .ext-link-parks { background: var(--green); color: var(--white); }
 .ext-link-trails { background: #3dba6e; color: var(--white); }
+.ext-link-cycling { background: #6b066c; color: var(--white); }
 
 /* PROGRESS BAR */
 .progress-section {

@@ -53,6 +53,7 @@
     if (park.parksUrl) extLinks.push(`<a class="ext-link ext-link-parks" href="${park.parksUrl}" target="_blank" rel="noopener">🏛 parks.ca.gov</a>`);
     const allHikesUrl = park.allTrailsExploreUrl || park.allTrailsUrl;
     if (allHikesUrl) extLinks.push(`<a class="ext-link ext-link-trails" href="${allHikesUrl}" target="_blank" rel="noopener">🥾 All hikes on AllTrails</a>`);
+    if(park.cyclingLink) extLinks.push(`<a class ="ext-link ext-link-cycling" href="${park.cyclingLink}" target="_blank" rel="noopener">🚲 Cycling Routes</a>`);
 
     container.innerHTML = `
       <a href="parks.html" class="back-link">← All Parks</a>
@@ -110,15 +111,22 @@
           </div>` : ''}
         </div>
 
-        ${park.cycling ? `
+        ${park.cyclingLink ? `
         <div class="detail-card">
           <h3>🚲 Cycling</h3>
           <p style="font-size:0.9rem;margin-bottom:1rem">${park.cycling}</p>
           <div style="display:flex;flex-direction:column;gap:0.5rem">
-            <a class="ext-link" href="https://ridewithgps.com/routes?search%5Blocation%5D=${encodeURIComponent(park.city + ', CA')}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🗺 Routes near ${park.city} on RideWithGPS</a>
-            <a class="ext-link" href="https://ridewithgps.com/routes?search%5Bkeywords%5D=${encodeURIComponent(park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim())}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🔍 Search "${park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim()}"</a>
+            <a class="ext-link" href="${park.cyclingLink}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🗺 Routes near ${park.city} on RideWithGPS</a>
           </div>
-        </div>` : ''}
+        </div>` : `
+        <div class="detail-card">
+          <h3>🚲 Cycling</h3>
+          <p style="font-size:0.9rem;margin-bottom:1rem">${park.cycling}</p>
+          <div style="display:flex;flex-direction:column;gap:0.5rem">
+            <a class="ext-link" href="https://ridewithgps.com/explore?q=${encodeURIComponent(park.city + ', CA')}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🗺 Routes near ${park.city} on RideWithGPS</a>
+            <a class="ext-link" href="https://ridewithgps.com/explore?q=${encodeURIComponent(park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim())}" target="_blank" rel="noopener" style="background:#e8f0fe;color:#1a56db;border-color:#c3d3f5">🔍 Search "${park.cycling.replace(/\s*\(.*?\)/g, '').split(/[;,]/)[0].trim()}"</a>
+          </div>
+        </div>`}
 
         ${park.scuba ? `
         <div class="detail-card">
