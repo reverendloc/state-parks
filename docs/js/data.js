@@ -216,6 +216,7 @@ const PARKS = [
     allTrailsUrl: "https://www.alltrails.com/parks/us/california/empire-mine-state-historic-park",
     parksUrl: "https://www.parks.ca.gov/EmpireMine/",
     cycling: "Mountain biking on 5 trails",
+    cyclingLink: "https://ridewithgps.com/explore?b=n!Empire%20Mine%20State%20Historic%20Park!-121.043870!39.205955~3mi&length=any",
     scuba: null,
     dogFriendly: true,
     dogPolicy: "Dogs on leash (max 6 feet) allowed on roads, trails, and historic zone. Not allowed inside historic buildings or mine shafts. Water available at Visitor Center and Blacksmith Shop.",
